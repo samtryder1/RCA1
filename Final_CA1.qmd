@@ -1,0 +1,208 @@
+---
+format: revealjs
+editor: visual
+title: "Country Comparison: Luxembourg vs South Sudan"
+author: "Sam Ryder"
+output:
+  revealjs::revealjs_presentation:
+    theme: default  # Specify the theme you want (e.g., simple, default, etc.)
+    slideNumber: c/t  # Controls where slide numbers appear (e.g., c/t for /top)
+    transition: fade  # Choose the slide transition style (e.g., slide, fade, none)
+    background:
+      color: "#f0f0f0"  # Specify the background color in CSS color name
+    toc: true  # Ensure this line is correctly set to enable TOC
+    navigationMode: linear  # Ensure linear navigation for TOC links
+allow-html: true
+fontsize: 13pt
+execute:
+  eval: true
+  echo: true
+  message: false
+  warning: false
+  size: 15
+---
+
+```{r,echo=FALSE}
+#Package Installation
+library(data.table)
+library(DT)
+library(ggplot2)
+```
+
+## Table of Contents
+
+-   Slide 1: Data Background
+-   Slide 2: Sudan Data
+-   Slide 3: Luxembourg Data
+-   Slide 4: Merged Data
+-   Slide 5: Gender Inequality
+-   Slide 6: Mean Years Schooling
+-   Slide 7: CO2 Trends
+-   Slide 8: Life Expectancy Trends
+-   Slide 9: Summary
+-   Slide 10: References
+
+## Slide 1: Data Background
+
+The data has been sourced from both Sudan and Luxembourg.
+
+These countries are chosen as according to global finance magazine, they are the poorest and richest countries in the world. This contrast in GDP should make for some interesting differing trends across the analysis.
+
+Samples of the data will be shown on the following two slides.
+
+## Slide 2: Sudan Data
+
+```{r}
+# Read the CSV file into a data.table
+sudanDT <- fread('hdro_indicators_ssd.csv', header= TRUE)
+#Class labels for each variable
+sudanDT[, value := as.numeric(value)]
+sudanDT[, year := as.integer(year)]
+# Inspect the structure of the data table
+#Remove column names that had become row 1
+sudanDT <- sudanDT[-1, ]
+datatable(head(sudanDT,3))
+```
+
+## Slide 3: Luxembourg Data
+
+```{r}
+# Read the CSV file into a data.table
+luxDT <- fread('hdro_indicators_lux.csv', header = TRUE)
+# Class labels for each variable
+luxDT[, value := as.numeric(value)]
+luxDT[, year := as.integer(year)]
+# Inspect the structure of the data table
+#Remove column names that had become row 1
+luxDT <- luxDT[-1, ]
+datatable(head(luxDT,3))
+```
+
+## Slide 4: Merged Data
+
+Data is merged to allow for ease of comparative analysis.
+
+```{r}
+# Set key columns for merging
+setkey(sudanDT, indicator_id, year)
+setkey(luxDT, indicator_id, year)
+# Perform the merge
+mergedDT <- sudanDT[luxDT, on = c("indicator_id", "year"), nomatch = 0]
+# Display mergedDT using datatable
+datatable(head(mergedDT,3))
+```
+
+## Slide 5: Gender Inequality
+
+```{r}
+# Filter the data for Gender Inequality Index (abr) and the two countries of interest
+filtered_data2 <- mergedDT[indicator_id == "abr" & 
+                          (country_code == "SSD" | i.country_code == "LUX"),]
+# Convert 'value' and 'i.value' to numeric
+filtered_data2[, c("value", "i.value") := lapply(.SD, as.numeric), .SDcols = c("value", "i.value")]
+
+# Remove rows with NA values in either 'value' or 'i.value'
+filtered_data2 <- filtered_data2[!is.na(value) & !is.na(i.value)]
+
+# Plotting using ggplot2
+ggplot(filtered_data2, aes(x = year)) +
+  geom_line(aes(y = value, color = "South Sudan", linetype = "South Sudan")) +
+  geom_line(aes(y = i.value, color = "Luxembourg", linetype = "Luxembourg")) +
+  scale_color_manual(values = c("South Sudan" = "red", "Luxembourg" = "blue")) +
+  scale_linetype_manual(values = c("South Sudan" = "solid", "Luxembourg" = "dashed")) +
+  labs(x = "Year", y = "Gender Inequality Index", color = "Country", linetype = "Country") +
+  ggtitle("Gender Inequality Index Over Years for South Sudan and Luxembourg")
+```
+
+## Slide 6: Mean Years Schooling
+
+```{r}
+# Filter the data for Mean Years Scholing (mys) and the two countries of interest
+filtered_data3 <- mergedDT[indicator_id == "mys" & 
+                          (country_code == "SSD" | i.country_code == "LUX"),]
+# Convert 'value' and 'i.value' to numeric
+filtered_data3[, c("value", "i.value") := lapply(.SD, as.numeric), .SDcols = c("value", "i.value")]
+
+# Remove rows with NA values in either 'value' or 'i.value'
+filtered_data3 <- filtered_data3[!is.na(value) & !is.na(i.value)]
+
+# Plotting using ggplot2
+ggplot(filtered_data3, aes(x = year)) +
+  geom_line(aes(y = value, color = "South Sudan", linetype = "South Sudan")) +
+  geom_line(aes(y = i.value, color = "Luxembourg", linetype = "Luxembourg")) +
+  scale_color_manual(values = c("South Sudan" = "red", "Luxembourg" = "blue")) +
+  scale_linetype_manual(values = c("South Sudan" = "solid", "Luxembourg" = "dashed")) +
+  labs(x = "Year", y = "Mean Years Schooling", color = "Country", linetype = "Country") +
+  ggtitle("Education Inequality Index Over Years for South Sudan and Luxembourg")
+```
+
+## Slide 7: CO2 Trends
+
+```{r}
+
+# Filter data for CO2 emissions for South Sudan
+co2_south_sudan <- mergedDT[country_name == "South Sudan" & index_id == "PHDI",
+                            .(country_name, year, average_co2 = mean(as.numeric(value), na.rm = TRUE)), 
+                            keyby = .(country_name, year)]
+
+# Filter data for CO2 emissions for Luxembourg
+co2_luxembourg <- mergedDT[i.country_name == "Luxembourg" & i.index_id == "PHDI",
+                           .(country_name = i.country_name, year, average_co2 = mean(as.numeric(i.value), na.rm = TRUE)), 
+                           keyby = .(country_name = i.country_name, year)]
+
+
+# Combine data for both countries into a single dataframe
+co2_trend_both_df <- rbindlist(list(co2_south_sudan, co2_luxembourg), fill = TRUE)
+
+
+# Remove redundant columns
+co2_trend_both_df <- unique(co2_trend_both_df[, .(country_name, year, average_co2)])
+
+# Filter data for Le at birth for South Sudan
+le_south_sudan <- mergedDT[country_name == "South Sudan" & indicator_id == "le",
+                            .(country_name = country_name, year, average_le = mean(as.numeric(value), na.rm = TRUE)), 
+                            keyby = .(country_name, year)]
+
+# Filter data for Le at birth for Lux
+le_lux <- mergedDT[i.country_name == "Luxembourg" & indicator_id == "le",
+                            .(country_name = i.country_name, year, average_le = mean(as.numeric(i.value), na.rm = TRUE)), 
+                            keyby = .(country_name = i.country_name, year)]
+
+# Combine data for both countries into a single dataframe
+le_trend_both_df <- rbindlist(list(le_south_sudan, le_lux), fill = TRUE)
+
+# Remove redundant columns
+le_trend_both_df <- unique(le_trend_both_df[, .(country_name, year, average_le)])
+
+# Plot CO2 trends for South Sudan and Luxembourg
+ggplot(co2_trend_both_df, aes(x = year, y = average_co2, color = country_name)) +
+  geom_line() +
+  labs(title = "CO2 Emissions Trend Over Years", x = "Year", y = "Average CO2 Emissions")
+```
+
+## Slide 8: Life Expectancy Trends
+
+```{r}
+#Plot Life expectancy trends for South Sudan and Luxembourg
+ggplot(le_trend_both_df, aes(x = year, y = average_le, color = country_name)) +
+  geom_line() + 
+  labs(title = 'Life Expectancy Trend Over Years', x = "Year", y = "Average Life Expectancy") 
+```
+
+## Slide 9: Summary
+
+-   In summary a comparison between the poorest and richest countries in the world has been made.
+-   A number of metrics were analysed and visualised to highlight the difference large gaps in GDP can make.
+-   The key takeaways are:
+    -   Gender Inequality is higher in South Sudan, although, the level of gender inequality is steadily declining for both countries, especially South Sudan, which is encouraging.
+    -   There is strikingly large gap between the mean years spent in school. South Sudan has remained at \~ 6 over the last 15 years, with Luxembourg fluctuating between 12 and 13.
+    -   There is another large gap between the CO2 emissions trend lines. Luxembourg produce significantly more CO2 than South Sudan. It must be noted there seems to have been a concerted effort to reduce this number in the last couple of years, and these efforts must be persisted with to fight the environmental crisis.
+    -   Life Expectancy further shows the disparity between the two countries. Luxembourg's was at \~75 over 30 years ago and has steadily risen to over 80. This growth is mirrored in South Sudan with Life Expectancy increasing from 30 -\> 55 over the same period. While this growth is impressive and promising there has been a plateau of late so efforts must be reconcerted to improve healthcare, nutrition, education etc to increase life expectancy and reduce the gap.
+
+## Slide 10: References
+
+***Data sources***
+
+-   <https://gfmag.com/data/richest-countries-in-the-world/>
+
+-   <https://gfmag.com/data/economic-data/poorest-country-in-the-world/>
