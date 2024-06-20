@@ -13,13 +13,13 @@ output:
     toc: true  # Ensure this line is correctly set to enable TOC
     navigationMode: linear  # Ensure linear navigation for TOC links
 allow-html: true
-fontsize: 13pt
+fontsize: 25pt
 execute:
   eval: true
   echo: true
   message: false
   warning: false
-  size: 15
+  size: 25
 ---
 
 ```{r,echo=FALSE}
